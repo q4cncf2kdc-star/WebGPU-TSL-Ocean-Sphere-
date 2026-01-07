@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGPU Ocean Sphere Pro</title>
+    <title>Ocean Sphere Stable</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         canvas { display: block; }
@@ -13,60 +13,64 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.171.0/build/three.module.js",
-                "three/tsl": "https://unpkg.com/three@0.171.0/build/three.webgpu.js"
+                "three": "https://unpkg.com/three@0.171.0/build/three.module.js"
             }
         }
     </script>
     <script type="module">
         import * as THREE from 'three';
-        import { vec3, positionLocal, time, float, Fn, MeshPhysicalNodeMaterial, vec2 } from 'three/tsl';
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.z = 2.5;
+        camera.position.z = 3;
 
-        const renderer = new THREE.WebGPURenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        const light = new THREE.DirectionalLight(0xffffff, 4);
+        const light = new THREE.DirectionalLight(0x0099ff, 5);
         light.position.set(5, 5, 5);
         scene.add(light);
-        scene.add(new THREE.AmbientLight(0x222222));
+        scene.add(new THREE.AmbientLight(0x404040));
 
-        const gerstner = Fn(([pos, dir, steep, len]) => {
-            const k = float(2.0).mul(Math.PI).div(len);
-            const c = k.mul(time).sqrt(); 
-            const f = k.mul(dir.dot(pos.xz)).sub(c);
-            const a = steep.div(k);
-            return vec3(dir.x.mul(a).mul(f.cos()), a.mul(f.sin()), dir.y.mul(a).mul(f.cos()));
+        const geometry = new THREE.SphereGeometry(1, 128, 128);
+        const material = new THREE.MeshPhysicalMaterial({
+            color: 0x0055ff,
+            metalness: 0.1,
+            roughness: 0.05,
+            transmission: 0.9,
+            thickness: 2.0,
+            transparent: true
         });
-
-        const material = new MeshPhysicalNodeMaterial({
-            color: 0x0099ff,
-            transmission: 0.98, 
-            ior: 1.333,         
-            thickness: 3.0,     
-            roughness: 0.01
-        });
-
-        const w1 = gerstner(positionLocal, vec2(1, 0), 0.5, 2.5);
-        const w2 = gerstner(positionLocal, vec2(0.4, 0.8), 0.4, 1.8);
-        const w3 = gerstner(positionLocal, vec2(-0.6, 0.4), 0.2, 3.5);
-
-        material.positionNode = positionLocal.add(w1).add(w2).add(w3);
-
-        const geometry = new THREE.SphereGeometry(1, 256, 256);
         const sphere = new THREE.Mesh(geometry, material);
         scene.add(sphere);
 
-        function animate() {
+        function animate(t) {
             requestAnimationFrame(animate);
+            const time = t * 0.001;
+            const position = geometry.attributes.position;
+            for (let i = 0; i < position.count; i++) {
+                const x = position.getX(i);
+                const y = position.getY(i);
+                const z = position.getZ(i);
+                const wave = Math.sin(x * 2 + time) * 0.1 + Math.sin(y * 3 + time) * 0.1;
+                const dist = Math.sqrt(x*x + y*y + z*z);
+                const ratio = (dist + wave) / dist;
+                position.setXYZ(i, x * ratio, y * ratio, z * ratio);
+            }
+            position.needsUpdate = true;
+            sphere.rotation.y += 0.005;
             renderer.render(scene, camera);
         }
-        animate();
+        animate(0);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
+
