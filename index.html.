@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGPU Ocean Sphere Pro</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.171.0/build/three.module.js",
+                "three/tsl": "https://unpkg.com/three@0.171.0/build/three.webgpu.js"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { vec3, positionLocal, time, float, Fn, MeshPhysicalNodeMaterial, vec2 } from 'three/tsl';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.z = 2.5;
+
+        const renderer = new THREE.WebGPURenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const light = new THREE.DirectionalLight(0xffffff, 4);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x222222));
+
+        const gerstner = Fn(([pos, dir, steep, len]) => {
+            const k = float(2.0).mul(Math.PI).div(len);
+            const c = k.mul(time).sqrt(); 
+            const f = k.mul(dir.dot(pos.xz)).sub(c);
+            const a = steep.div(k);
+            return vec3(dir.x.mul(a).mul(f.cos()), a.mul(f.sin()), dir.y.mul(a).mul(f.cos()));
+        });
+
+        const material = new MeshPhysicalNodeMaterial({
+            color: 0x0099ff,
+            transmission: 0.98, 
+            ior: 1.333,         
+            thickness: 3.0,     
+            roughness: 0.01
+        });
+
+        const w1 = gerstner(positionLocal, vec2(1, 0), 0.5, 2.5);
+        const w2 = gerstner(positionLocal, vec2(0.4, 0.8), 0.4, 1.8);
+        const w3 = gerstner(positionLocal, vec2(-0.6, 0.4), 0.2, 3.5);
+
+        material.positionNode = positionLocal.add(w1).add(w2).add(w3);
+
+        const geometry = new THREE.SphereGeometry(1, 256, 256);
+        const sphere = new THREE.Mesh(geometry, material);
+        scene.add(sphere);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
