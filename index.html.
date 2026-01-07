@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WebGPU Liquid Sphere Pro</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.171.0/build/three.webgpu.js",
+                "three/tsl": "https://unpkg.com/three@0.171.0/build/three.tsl.js",
+                "three/addons/": "https://unpkg.com/three@0.171.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { tslFn, vec3, positionLocal, time, meshPhysicalMaterial } from 'three/tsl';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const renderer = new THREE.WebGPURenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.z = 2.5;
+
+        // Touch Interaction
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // TSL Liquid Physics Logic
+        const liquidPhysics = tslFn(() => {
+            const pos = positionLocal;
+            const noise = time.mul(0.5).add(pos.x.mul(1.5)).add(pos.y.mul(1.5)).sin().mul(0.15);
+            return pos.add(pos.normalize().mul(noise));
+        });
+
+        const material = meshPhysicalMaterial();
+        material.positionNode = liquidPhysics();
+        material.colorNode = vec3(0.0, 0.4, 1.0); // Electric Blue
+        material.roughness = 0.02;
+        material.transmission = 1.0;
+        material.thickness = 1.0;
+
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 256, 256), material);
+        scene.add(sphere);
+
+        const sun = new THREE.DirectionalLight(0xffffff, 4);
+        sun.position.set(5, 5, 5);
+        scene.add(sun);
+        scene.add(new THREE.AmbientLight(0x222222));
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
